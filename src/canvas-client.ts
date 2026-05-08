@@ -57,6 +57,53 @@ export class CanvasClient {
     return response.json() as Promise<T>;
   }
 
+  private parseLinkNext(linkHeader: string | null): string | null {
+    if (!linkHeader) return null;
+    // Link header format: <url>; rel="next", <url>; rel="last", ...
+    const parts = linkHeader.split(',');
+    for (const part of parts) {
+      const match = part.match(/<([^>]+)>\s*;\s*rel="next"/);
+      if (match) return match[1];
+    }
+    return null;
+  }
+
+  private async requestAllPages<T>(
+    endpoint: string,
+    params: object = {}
+  ): Promise<T[]> {
+    const mergedParams: Record<string, unknown> = { per_page: 100, ...(params as Record<string, unknown>) };
+    const initialQuery = this.buildQueryString(mergedParams);
+    let url: string | null = `${this.baseUrl}/api/v1${endpoint}${initialQuery}`;
+
+    const headers: HeadersInit = {
+      'Authorization': `Bearer ${this.apiToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    const results: T[] = [];
+
+    while (url) {
+      const response: Response = await fetch(url, { headers });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `Canvas API error: ${response.status} ${response.statusText} - ${errorBody}`
+        );
+      }
+
+      const page = (await response.json()) as T[];
+      if (Array.isArray(page)) {
+        results.push(...page);
+      }
+
+      url = this.parseLinkNext(response.headers.get('link'));
+    }
+
+    return results;
+  }
+
   private buildQueryString(params: object): string {
     const searchParams = new URLSearchParams();
     
@@ -77,8 +124,7 @@ export class CanvasClient {
   // ==================== COURSES ====================
 
   async listCourses(params: ListCoursesParams = {}): Promise<Course[]> {
-    const query = this.buildQueryString(params);
-    return this.request<Course[]>(`/courses${query}`);
+    return this.requestAllPages<Course>('/courses', params);
   }
 
   async getCourse(courseId: number, include?: string[]): Promise<Course> {
