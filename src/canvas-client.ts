@@ -24,10 +24,70 @@ interface CanvasClientConfig {
 export class CanvasClient {
   private baseUrl: string;
   private apiToken: string;
+  private baseOrigin: string;
 
   constructor(config: CanvasClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+
+    // Validate the base URL up front. An invalid or non-HTTP(S) URL would
+    // otherwise fail later in an opaque way, and a plain http:// URL would
+    // send the bearer token in cleartext.
+    let parsed: URL;
+    try {
+      parsed = new URL(this.baseUrl);
+    } catch {
+      throw new Error(
+        `Invalid CANVAS_BASE_URL: "${config.baseUrl}". Expected something like https://your-school.instructure.com`
+      );
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      throw new Error(
+        `CANVAS_BASE_URL must use http(s); got "${parsed.protocol}"`
+      );
+    }
+    if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+      throw new Error(
+        'CANVAS_BASE_URL must use https:// (the API token would otherwise be sent in cleartext)'
+      );
+    }
+
+    this.baseOrigin = parsed.origin;
     this.apiToken = config.apiToken;
+  }
+
+  /**
+   * Guard against the bearer token being sent anywhere other than the
+   * configured Canvas instance. The pagination `Link` header is supplied by
+   * the server, so a malicious or compromised response could otherwise point
+   * `next` at an attacker-controlled host and exfiltrate the token.
+   */
+  private assertSameOrigin(targetUrl: string): void {
+    let origin: string;
+    try {
+      origin = new URL(targetUrl).origin;
+    } catch {
+      throw new Error(`Refusing to follow malformed pagination URL: ${targetUrl}`);
+    }
+    if (origin !== this.baseOrigin) {
+      throw new Error(
+        `Refusing to send credentials to unexpected host "${origin}" (expected "${this.baseOrigin}")`
+      );
+    }
+  }
+
+  /** Build an error from a failed response, truncating the (untrusted) body. */
+  private async toApiError(response: Response, prefix = 'Canvas API error'): Promise<Error> {
+    let body = '';
+    try {
+      body = await response.text();
+    } catch {
+      body = '<unreadable response body>';
+    }
+    const MAX = 500;
+    if (body.length > MAX) {
+      body = `${body.slice(0, MAX)}… (truncated)`;
+    }
+    return new Error(`${prefix}: ${response.status} ${response.statusText} - ${body}`);
   }
 
   private async request<T>(
@@ -48,10 +108,7 @@ export class CanvasClient {
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(
-        `Canvas API error: ${response.status} ${response.statusText} - ${errorBody}`
-      );
+      throw await this.toApiError(response);
     }
 
     return response.json() as Promise<T>;
@@ -84,13 +141,15 @@ export class CanvasClient {
     const results: T[] = [];
 
     while (url) {
+      // The first URL is built from baseUrl; subsequent URLs come from the
+      // server-controlled Link header, so re-validate the origin every loop
+      // before attaching the Authorization header.
+      this.assertSameOrigin(url);
+
       const response: Response = await fetch(url, { headers });
 
       if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(
-          `Canvas API error: ${response.status} ${response.statusText} - ${errorBody}`
-        );
+        throw await this.toApiError(response);
       }
 
       const page = (await response.json()) as T[];
@@ -257,8 +316,7 @@ export class CanvasClient {
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`File upload error: ${response.status} - ${errorBody}`);
+      throw await this.toApiError(response, 'File upload error');
     }
 
     return response.json();

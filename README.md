@@ -6,6 +6,7 @@ An MCP (Model Context Protocol) server that connects Claude to Canvas LMS, letti
 - "What assignments do I have due this week?"
 - "Show me the rubric for my essay assignment"
 - "What did my professor say in the feedback?"
+- "What subjects am I enrolled in this semester?"
 - "List all my courses"
 - "Are there any overdue assignments?"
 
@@ -80,6 +81,7 @@ You should now see Canvas tools available in Claude!
 ## What Can It Do?
 
 ### 📚 Courses
+- List the subjects you're enrolled in (with term and current grade)
 - List all your enrolled courses
 - Get course details and syllabi
 
@@ -110,6 +112,7 @@ You should now see Canvas tools available in Claude!
 
 | Tool | What it does |
 |------|--------------|
+| `list_my_subjects` | List the subjects you're enrolled in (term + current grade) |
 | `list_courses` | List your enrolled courses |
 | `get_course` | Get details about a specific course |
 | `list_assignments` | List assignments (with filters) |
@@ -159,6 +162,10 @@ Check that your `CANVAS_BASE_URL` is correct (no trailing slash).
 - Revoke tokens you no longer use (Canvas Settings → Approved Integrations)
 
 Your API token has the same access as your Canvas account - anyone with it can view your grades, submit assignments, etc.
+
+**The server protects your token:**
+- `CANVAS_BASE_URL` must be `https://` (an `http://` URL is rejected so the token is never sent in cleartext, except for `localhost`).
+- When paginating, the server only follows `next` links that point back to your configured Canvas host, so a crafted API response can't redirect your token to another server.
 
 ---
 
