@@ -12,6 +12,10 @@ import type {
   ListAssignmentsParams,
   ListModulesParams,
   ListAnnouncementsParams,
+  ListPagesParams,
+  Page,
+  CanvasFile,
+  ListFilesParams,
   SubmitAssignmentParams,
   SubmissionType,
 } from './types/canvas.js';
@@ -375,6 +379,73 @@ export class CanvasClient {
     return this.request<unknown>(
       `/courses/${courseId}/rubrics/${rubricId}${query}`
     );
+  }
+
+  // ==================== PAGES ====================
+
+  async listPages(
+    courseId: number,
+    params: ListPagesParams = {}
+  ): Promise<Page[]> {
+    return this.requestAllPages<Page>(`/courses/${courseId}/pages`, params);
+  }
+
+  async getPage(courseId: number, pageUrl: string | number): Promise<Page> {
+    // Canvas accepts either the page's numeric id or its url slug.
+    const identifier = encodeURIComponent(String(pageUrl));
+    return this.request<Page>(`/courses/${courseId}/pages/${identifier}`);
+  }
+
+  async getFrontPage(courseId: number): Promise<Page> {
+    return this.request<Page>(`/courses/${courseId}/front_page`);
+  }
+
+  // ==================== FILES ====================
+
+  /** Base URL of the Canvas instance, without a trailing slash. */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  async getFile(fileId: number, courseId?: number): Promise<CanvasFile> {
+    // Course-scoped lookups succeed in some courses where the global one is
+    // restricted, so prefer it whenever the caller knows the course.
+    const endpoint = courseId
+      ? `/courses/${courseId}/files/${fileId}`
+      : `/files/${fileId}`;
+    return this.request<CanvasFile>(endpoint);
+  }
+
+  async listCourseFiles(
+    courseId: number,
+    params: ListFilesParams = {}
+  ): Promise<CanvasFile[]> {
+    return this.requestAllPages<CanvasFile>(`/courses/${courseId}/files`, params);
+  }
+
+  /**
+   * Open a read stream for a Canvas file url. The url returned by the API is
+   * pre-signed; the auth header is only attached for same-host requests so the
+   * token is never sent to a storage CDN we get redirected to.
+   */
+  async openFileStream(fileUrl: string): Promise<Response> {
+    const headers: Record<string, string> = {};
+    try {
+      if (new URL(fileUrl).origin === new URL(this.baseUrl).origin) {
+        headers['Authorization'] = `Bearer ${this.apiToken}`;
+      }
+    } catch {
+      // Malformed url: let fetch surface the error below.
+    }
+
+    const response = await fetch(fileUrl, { headers, redirect: 'follow' });
+
+    if (!response.ok || !response.body) {
+      throw new Error(
+        `Canvas file download failed: ${response.status} ${response.statusText}`
+      );
+    }
+    return response;
   }
 
   // ==================== SEARCH / UTILITY ====================

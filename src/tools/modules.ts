@@ -43,6 +43,8 @@ export function registerModuleTools(server: McpServer) {
             position: item.position,
             html_url: item.html_url,
             content_id: item.content_id,
+            // Present on Page items — pass to get_page to read the body.
+            page_url: item.page_url,
             completion_requirement: item.completion_requirement,
             content_details: item.content_details,
           })) : undefined,

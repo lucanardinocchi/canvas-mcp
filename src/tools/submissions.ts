@@ -158,7 +158,7 @@ export function registerSubmissionTools(server: McpServer) {
       file_name: z.string().describe('Name of the file to upload'),
       file_content: z.string().describe('Base64 encoded file content'),
       content_type: z.string().describe('MIME type of the file (e.g., application/pdf, text/plain)'),
-      submit_after_upload: z.boolean().optional().default(true)
+      submit_after_upload: z.boolean().optional().default(false)
         .describe('Automatically submit the assignment after uploading'),
     },
     async ({ course_id, assignment_id, file_name, file_content, content_type, submit_after_upload }) => {
