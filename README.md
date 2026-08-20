@@ -15,8 +15,11 @@ An MCP (Model Context Protocol) server that connects Claude to Canvas LMS, letti
 
 ### macOS / Linux — one command
 
+Unzip `canvas-mcp.zip` somewhere you intend to keep it — the setup records the
+folder's location, so moving it later breaks the connection (just re-run the
+setup if you do move it). Then:
+
 ```bash
-git clone <REPO_URL> canvas-mcp
 cd canvas-mcp
 ./setup.sh
 ```
@@ -36,9 +39,9 @@ the window is not enough), reopen, and ask *"list my courses"*.
 
 ### Windows
 
+Unzip the folder somewhere permanent, open a terminal in it, then:
+
 ```bash
-git clone <REPO_URL> canvas-mcp
-cd canvas-mcp
 npm install --ignore-scripts
 npm run build
 npm run setup
