@@ -324,6 +324,56 @@ export interface DiscussionEntry {
 }
 
 // API Request/Response types
+export interface Page {
+  page_id: number;
+  url: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  editing_roles?: string;
+  last_edited_by?: User;
+  body?: string;
+  published: boolean;
+  front_page: boolean;
+  hide_from_students?: boolean;
+  locked_for_user?: boolean;
+  lock_info?: LockInfo;
+  lock_explanation?: string;
+  html_url?: string;
+  todo_date?: string | null;
+}
+
+export interface CanvasFile {
+  id: number;
+  folder_id: number;
+  display_name: string;
+  filename: string;
+  // Canvas returns this key hyphenated on the files endpoints.
+  'content-type': string;
+  url: string;
+  size: number;
+  created_at: string;
+  updated_at: string;
+  modified_at?: string;
+  unlock_at?: string | null;
+  lock_at?: string | null;
+  locked: boolean;
+  hidden: boolean;
+  hidden_for_user?: boolean;
+  locked_for_user?: boolean;
+  lock_explanation?: string;
+  mime_class?: string;
+  upload_status?: string;
+  thumbnail_url?: string | null;
+}
+
+export interface ListFilesParams {
+  search_term?: string;
+  content_types?: string[];
+  sort?: 'name' | 'size' | 'created_at' | 'updated_at' | 'content_type';
+  order?: 'asc' | 'desc';
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   link?: {
@@ -376,6 +426,13 @@ export interface ListModulesParams {
   include?: ('items' | 'content_details')[];
   search_term?: string;
   student_id?: number;
+}
+
+export interface ListPagesParams {
+  search_term?: string;
+  sort?: 'title' | 'created_at' | 'updated_at';
+  order?: 'asc' | 'desc';
+  published?: boolean;
 }
 
 export interface ListAnnouncementsParams {
